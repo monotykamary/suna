@@ -7,20 +7,58 @@ import { SubmitButton } from '../ui/submit-button';
 type Props = {
   token: string;
 };
+
 export default async function AcceptTeamInvitation({ token }: Props) {
+  // Check if essential Supabase environment variables are present
+  // If not (e.g., during build without runtime env vars), render a fallback or nothing.
+  if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
+    return (
+      <Card>
+        <CardContent className="p-8 text-center">
+          <p>Loading invitation...</p>
+        </CardContent>
+      </Card>
+    );
+  }
+
   const supabaseClient = await createClient();
-  const { data: invitation } = await supabaseClient.rpc('lookup_invitation', {
+  const { data: invitation, error } = await supabaseClient.rpc('lookup_invitation', {
     lookup_invitation_token: token,
   });
+
+  if (error) {
+    console.error('Error looking up invitation:', error);
+    return (
+      <Card>
+        <CardContent className="p-8 text-center">
+          <Alert variant="destructive">
+            Could not load invitation details. Please try again later.
+          </Alert>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  if (!invitation) {
+    return (
+      <Card>
+        <CardContent className="p-8 text-center">
+          <Alert variant="destructive">
+            Invalid or expired invitation token.
+          </Alert>
+        </CardContent>
+      </Card>
+    );
+  }
 
   return (
     <Card>
       <CardContent className="p-8 text-center flex flex-col gap-y-8">
         <div>
           <p>You've been invited to join</p>
-          <h1 className="text-xl font-bold">{invitation.account_name}</h1>
+          <h1 className="text-xl font-bold">{invitation.account_name || 'a team'}</h1>
         </div>
-        {Boolean(invitation.active) ? (
+        {invitation.active ? (
           <form>
             <input type="hidden" name="token" value={token} />
             <SubmitButton
