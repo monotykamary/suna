@@ -1,0 +1,59 @@
+name: Sync Fork with Upstream
+
+on:
+  schedule:
+    - cron: "0 0 * * *" # Runs daily at midnight UTC
+  workflow_dispatch: # Allows manual triggering
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Fork
+        uses: actions/checkout@v3
+        with:
+          # We need to fetch all history for all branches and tags
+          # for the merge to work correctly.
+          fetch-depth: 0 
+          # It is important to use a PAT here if your repository has branch protections
+          # that prevent GITHUB_TOKEN from pushing.
+          # token: ${{ secrets.YOUR_PAT_HERE }} # Uncomment and replace if needed
+
+      - name: Set Git Config
+        run: |
+          git config --global user.email "actions@github.com"
+          git config --global user.name "GitHub Actions"
+
+      - name: Add Upstream Remote
+        run: git remote add upstream https://github.com/Kortix-ai/Suna.git
+
+      - name: Fetch Upstream
+        run: git fetch upstream
+
+      - name: Merge Upstream
+        # Replace 'main' with the default branch of your fork if it's different
+        # Replace 'upstream/main' with the correct upstream branch if it's different
+        run: |
+          # Get the current branch name
+          CURRENT_BRANCH=$(git rev-parse --abbrev-ref HEAD)
+          echo "Current branch is $CURRENT_BRANCH"
+          
+          UPSTREAM_BRANCH_TO_SYNC="main" # Default branch of Kortix-ai/Suna
+          echo "Attempting to merge upstream/$UPSTREAM_BRANCH_TO_SYNC into $CURRENT_BRANCH"
+          
+          # Try to merge. If there are conflicts, the script will exit with an error.
+          # For more robust conflict handling, you might need a more complex script
+          # or manual intervention.
+          git merge "upstream/$UPSTREAM_BRANCH_TO_SYNC" -m "Merge upstream changes from $UPSTREAM_BRANCH_TO_SYNC"
+          
+          echo "Merge successful or no new changes from upstream."
+
+      - name: Push Changes
+        run: |
+          CURRENT_BRANCH=$(git rev-parse --abbrev-ref HEAD)
+          git push origin "$CURRENT_BRANCH"
+        env:
+          # This ensures the push is done with the permissions of the GITHUB_TOKEN
+          # or the PAT if you configured one in the checkout step.
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
